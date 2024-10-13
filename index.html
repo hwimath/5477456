@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>약수 및 최대공약수 게임</title>
+    <!-- MathJax 라이브러리 로드 -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        #start-screen, #game-screen, #end-screen {
+            display: none;
+            padding: 20px;
+        }
+        #start-screen.visible, #game-screen.visible, #end-screen.visible {
+            display: block;
+        }
+        h1 {
+            color: #2e8b57;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .button {
+            padding: 15px 25px;
+            font-size: 18px;
+            margin: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            background-color: #20b2aa;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #3cb371;
+        }
+        #energy-bar {
+            width: 100%;
+            height: 25px;
+            background-color: #eee;
+            margin: 20px 0;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        #energy {
+            height: 100%;
+            background-color: #ff6347;
+            width: 100%;
+            transition: width 0.2s linear;
+        }
+        #stats {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        #message {
+            font-size: 22px;
+            color: #dc143c;
+            margin-top: 20px;
+            min-height: 30px;
+        }
+        .question-container {
+            margin: 20px 0;
+            text-align: left;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .question {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        .options {
+            list-style-type: none;
+            padding: 0;
+        }
+        .options li {
+            margin: 10px 0;
+        }
+        .option-button {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            border: 2px solid #20b2aa;
+            border-radius: 8px;
+            background-color: white;
+            transition: background-color 0.3s, color 0.3s;
+            width: 100%;
+            text-align: left;
+        }
+        .option-button:hover {
+            background-color: #20b2aa;
+            color: white;
+        }
+        .option-button.correct {
+            background-color: #32cd32;
+            color: white;
+            border-color: #32cd32;
+        }
+        .option-button.incorrect {
+            background-color: #ff6347;
+            color: white;
+            border-color: #ff6347;
+        }
+        #next-button {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            background-color: #32cd32;
+            color: white;
+            transition: background-color 0.3s;
+            display: none;
+            margin-top: 20px;
+        }
+        #next-button:hover {
+            background-color: #3cb371;
+        }
+        #results {
+            margin-top: 20px;
+            text-align: left;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            overflow-y: scroll;
+            max-height: 400px;
+        }
+        .result-item {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 시작 화면 -->
+    <div id="start-screen" class="visible">
+        <h1>약수 및 최대공약수 게임</h1>
+        <h2>난이도를 선택하세요</h2>
+        <button class="button" onclick="startGame('highest')">최상</button>
+        <button class="button" onclick="startGame('high')">상</button>
+        <button class="button" onclick="startGame('medium')">중</button>
+        <button class="button" onclick="startGame('low')">하</button>
+    </div>
+
+    <!-- 게임 화면 -->
+    <div id="game-screen">
+        <h1>약수 및 최대공약수 게임</h1>
+        <div id="energy-bar">
+            <div id="energy"></div>
+        </div>
+        <div id="question-container">
+            <!-- 현재 문제가 여기 표시됩니다 -->
+        </div>
+        <div id="message"></div>
+        <button id="next-button" onclick="nextQuestion()">다음 문제</button>
+        <div id="stats">
+            <p>점수: <span id="score">0</span></p>
+            <p>남은 기회: <span id="lives">3</span></p>
+            <p>총 게임 시간: <span id="game-time">0</span>초</p>
+        </div>
+    </div>
+
+    <!-- 종료 화면 -->
+    <div id="end-screen">
+        <h1>게임 종료!</h1>
+        <p>최종 점수: <span id="final-score">0</span></p>
+        <p>총 게임 시간: <span id="final-time">0</span>초</p>
+        <div id="results">
+            <h2>정답 확인</h2>
+            <!-- 정답 결과가 여기 표시됩니다 -->
+        </div>
+        <button class="button" onclick="restartGame()">다시 시작</button>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // 난이도별 설정
+            const difficultySettings = {
+                'highest': { time: 20, points: 20 },
+                'high': { time: 25, points: 15 },
+                'medium': { time: 30, points: 10 },
+                'low': { time: 35, points: 5 }
+            };
+            let difficulty;
+            let timeLimit;
+            let score = 0;
+            let lives = 3;
+            let totalGameTime = 0;
+            let gameInterval;
+            let energyInterval;
+            let gameStartTime;
+
+            let currentQuestionIndex = 0;
+            let shuffledQuestions = [];
+
+            // 문제 및 정답 데이터 (답이 존재하는 문제만 포함)
+            const problems = [
+                // OX 문제 (14개)
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(2, 9\\)", answer: 'O' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(6, 14\\)", answer: 'X' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(4, 51\\)", answer: 'O' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(10, 18\\)", answer: 'X' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(17, 78\\)", answer: 'O' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(19, 58\\)", answer: 'O' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(7, 9\\)", answer: 'O' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(8, 18\\)", answer: 'X' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(16, 27\\)", answer: 'O' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(11, 66\\)", answer: 'X' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(14, 27\\)", answer: 'O' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(15, 36\\)", answer: 'X' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(14, 30\\)", answer: 'X' },
+                { type: 'OX', question: "다음 두 수가 서로소이면 O표, 아니면 X표 하여라. \\(17, 38\\)", answer: 'O' },
+
+                // 일반 문제 (35개)
+                // A. 19번부터 25번까지: 서로소 개수 구하기
+                { type: 'MCQ', question: "60 이하의 자연수 중에서 10과 서로소인 자연수의 개수를 구하여라.", answer: 24 },
+                { type: 'MCQ', question: "100보다 작은 자연수 중에서 67과 서로소인 자연수의 개수를 구하여라.", answer: 98 },
+                { type: 'MCQ', question: "80보다 작은 자연수 중에서 80과 서로소인 자연수의 개수를 구하여라.", answer: 32 },
+                { type: 'MCQ', question: "1보다 크고 100보다 작은 자연수 중 17과 서로소인 자연수의 개수를 구하여라.", answer: 93 },
+                { type: 'MCQ', question: "28 이하의 자연수 중 9와 서로소인 자연수의 개수를 구하여라.", answer: 19 },
+                { type: 'MCQ', question: "200 이하의 자연수 중에서 57과 서로소인 자연수의 개수를 구하여라.", answer: 127 },
+                { type: 'MCQ', question: "1000 미만의 자연수 중에서 97과 서로소인 자연수의 개수를 구하여라.", answer: 989 },
+
+             
+                // C. 63번부터 77번까지: 세 수의 최대공약수 구하기 (15개)
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(12, 20, 28\\)", answer: 4 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(18, 48, 72\\)", answer: 6 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(75, 45, 15\\)", answer: 15 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(42, 56, 98\\)", answer: 14 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(30, 50, 70\\)", answer: 10 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(81, 54, 27\\)", answer: 27 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(64, 96, 128\\)", answer: 32 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(36, 54, 108\\)", answer: 18 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(48, 72, 120\\)", answer: 24 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(100, 150, 250\\)", answer: 50 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(84, 126, 168\\)", answer: 42 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(90, 120, 150\\)", answer: 30 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(12, 18, 30\\)", answer: 6 },
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(144, 216, 324\\)", answer: 36 }, // 수정됨
+                { type: 'MCQ', question: "다음 세 수의 최대공약수를 구하여라. \\(24, 36, 72\\)", answer: 12 },
+
+                // D. 88번부터 100번까지: 두 수의 공약수 개수 구하기 (13개)
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(84, 180\\)", answer: 6 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(72, 108\\)", answer: 9 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(54, 90\\)", answer: 6 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(45, 75\\)", answer: 4 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(80, 100\\)", answer: 6 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(96, 144\\)", answer: 10 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(63, 105\\)", answer: 4 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(56, 84\\)", answer: 6 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(108, 162\\)", answer: 8 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(36, 54\\)", answer: 6 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(90, 120\\)", answer: 8 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(75, 125\\)", answer: 3 },
+                { type: 'MCQ', question: "다음 두 수의 공약수의 개수를 구하여라. \\(50, 100\\)", answer: 6 },
+            ];
+
+            // Function to start the game
+            window.startGame = function(selectedDifficulty) {
+                difficulty = selectedDifficulty;
+                timeLimit = difficultySettings[difficulty].time;
+                document.getElementById('start-screen').classList.remove('visible');
+                document.getElementById('game-screen').classList.add('visible');
+                gameStartTime = Date.now();
+                score = 0;
+                lives = 3;
+                totalGameTime = 0;
+                currentQuestionIndex = 0;
+                shuffledQuestions = shuffleArray([...problems]); // 문제 목록 섞기
+                updateStats();
+                renderQuestion();
+                if (difficulty !== 'low') {
+                    startEnergyBar();
+                }
+                gameInterval = setInterval(() => {
+                    totalGameTime = Math.floor((Date.now() - gameStartTime) / 1000);
+                    document.getElementById('game-time').innerText = totalGameTime;
+                }, 1000);
+            }
+
+            // Function to shuffle the questions array and return a new array
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    let j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            // Function to render the current question
+            function renderQuestion() {
+                if (currentQuestionIndex >= shuffledQuestions.length) {
+                    endGame();
+                    return;
+                }
+                const container = document.getElementById('question-container');
+                container.innerHTML = '';
+                const currentQuestion = shuffledQuestions[currentQuestionIndex];
+                const div = document.createElement('div');
+                div.className = 'question-container';
+                div.innerHTML = `
+                    <div class="question">${currentQuestion.question}</div>
+                    <ul class="options" id="options-list">
+                        <!-- 옵션이 여기 표시됩니다 -->
+                    </ul>
+                `;
+                container.appendChild(div);
+                generateOptions(currentQuestion);
+                MathJax.typesetPromise();
+                document.getElementById('message').innerHTML = '';
+            }
+
+            // Function to generate options based on question type
+            function generateOptions(questionObj) {
+                const optionsList = document.getElementById('options-list');
+                optionsList.innerHTML = '';
+                if (questionObj.type === 'OX') {
+                    // OX 문제
+                    const options = ['O', 'X'];
+                    options.forEach(option => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <button class="option-button" onclick="checkAnswer('${option}')">${option}</button>
+                        `;
+                        optionsList.appendChild(li);
+                    });
+                } else if (questionObj.type === 'MCQ') {
+                    // 사지선다형 문제
+                    let correctAnswer = questionObj.answer;
+                    let options = generateMCQOptions(correctAnswer);
+                    options = shuffleArray(options); // 보기 섞기
+                    options.forEach(option => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <button class="option-button" onclick="checkAnswer('${option}')">${option}</button>
+                        `;
+                        optionsList.appendChild(li);
+                    });
+                }
+            }
+
+            // Function to generate multiple choice options
+            function generateMCQOptions(correctAnswer) {
+                let options = [];
+                if (typeof correctAnswer === 'number') {
+                    // 숫자형 답변
+                    options.push(correctAnswer);
+                    // 생성할 오답 (±1, ±2, etc.)
+                    let delta = Math.max(2, Math.floor(correctAnswer * 0.1)); // delta를 적절히 설정
+                    while (options.length < 4) {
+                        let wrong = correctAnswer + Math.floor(Math.random() * delta * 2) - delta;
+                        if (wrong !== correctAnswer && wrong > 0 && !options.includes(wrong)) {
+                            options.push(wrong);
+                        }
+                    }
+                } else {
+                    // 문자열형 답변 (소인수분해 표현)
+                    options.push(correctAnswer);
+                    // 생성할 오답 (비슷한 형태)
+                    let wrong1 = correctAnswer.replace(/2/g, '3');
+                    let wrong2 = correctAnswer.replace(/3/g, '2');
+                    let wrong3 = correctAnswer.replace(/7/g, '5');
+                    // Ensure uniqueness and validity
+                    [wrong1, wrong2, wrong3].forEach(wrong => {
+                        if (!options.includes(wrong) && wrong !== correctAnswer) {
+                            options.push(wrong);
+                        }
+                    });
+                    // 추가 오답 생성
+                    while (options.length < 4) {
+                        let temp = correctAnswer;
+                        temp = temp.replace(/(\d+)/g, match => parseInt(match) + Math.floor(Math.random() * 3) - 1);
+                        if (!options.includes(temp)) {
+                            options.push(temp);
+                        }
+                    }
+                }
+                return options;
+            }
+
+            // Function to check the selected answer
+            window.checkAnswer = function(selectedOption) {
+                const currentQuestion = shuffledQuestions[currentQuestionIndex];
+                let isCorrect = false;
+                let correctAnswer = currentQuestion.answer;
+
+                if (currentQuestion.type === 'OX') {
+                    if (selectedOption === correctAnswer) {
+                        isCorrect = true;
+                        score += difficultySettings[difficulty].points;
+                        document.getElementById('message').innerHTML = '정답입니다! 🎉';
+                    } else {
+                        lives--;
+                        document.getElementById('message').innerHTML = `틀렸습니다! 정답은 <strong>${correctAnswer}</strong>입니다. 😢`;
+                    }
+                } else if (currentQuestion.type === 'MCQ') {
+                    if (typeof correctAnswer === 'number') {
+                        // 숫자형 정답일 경우
+                        if (Number(selectedOption) === correctAnswer) {
+                            isCorrect = true;
+                            score += difficultySettings[difficulty].points;
+                            document.getElementById('message').innerHTML = '정답입니다! 🎉';
+                        } else {
+                            lives--;
+                            document.getElementById('message').innerHTML = `틀렸습니다! 정답은 <strong>${correctAnswer}</strong>입니다. 😢`;
+                        }
+                    } else if (typeof correctAnswer === 'string') {
+                        // 문자열형 정답일 경우 (소인수분해 표현)
+                        // 정답에서 '\\('와 '\\)'를 제거
+                        let processedAnswer = correctAnswer.replace(/\\\(|\\\)/g, '').trim();
+                        if (selectedOption === processedAnswer) {
+                            isCorrect = true;
+                            score += difficultySettings[difficulty].points;
+                            document.getElementById('message').innerHTML = '정답입니다! 🎉';
+                        } else {
+                            lives--;
+                            document.getElementById('message').innerHTML = `틀렸습니다! 정답은 <strong>${correctAnswer}</strong>입니다. 😢`;
+                        }
+                    }
+                }
+
+                updateStats();
+                highlightOptions(isCorrect, selectedOption);
+                disableOptions();
+
+                // Show next button after a short delay
+                document.getElementById('next-button').style.display = 'inline-block';
+                if (lives <= 0) {
+                    endGame();
+                }
+            }
+
+            // Function to highlight options based on correctness
+            function highlightOptions(isCorrect, selectedOption) {
+                const buttons = document.querySelectorAll('.option-button');
+                buttons.forEach(button => {
+                    let buttonText = button.textContent.trim();
+                    let currentQuestion = shuffledQuestions[currentQuestionIndex];
+                    let correctAnswer = currentQuestion.answer;
+
+                    if (currentQuestion.type === 'MCQ' && typeof correctAnswer === 'string') {
+                        // 문자열형 정답일 경우 (소인수분해 표현)
+                        correctAnswer = correctAnswer.replace(/\\\(|\\\)/g, '').trim();
+                    }
+
+                    if (buttonText === selectedOption) {
+                        if (isCorrect) {
+                            button.classList.add('correct');
+                        } else {
+                            button.classList.add('incorrect');
+                        }
+                    }
+
+                    if (buttonText === correctAnswer) {
+                        button.classList.add('correct');
+                    }
+                });
+            }
+
+            // Function to disable all option buttons after selection
+            function disableOptions() {
+                const buttons = document.querySelectorAll('.option-button');
+                buttons.forEach(button => {
+                    button.disabled = true;
+                });
+            }
+
+            // Function to update the stats
+            function updateStats() {
+                document.getElementById('score').innerText = score;
+                document.getElementById('lives').innerText = lives;
+                document.getElementById('game-time').innerText = totalGameTime;
+            }
+
+            // Function to go to the next question
+            window.nextQuestion = function() {
+                currentQuestionIndex++;
+                renderQuestion();
+                if (difficulty !== 'low') {
+                    startEnergyBar();
+                }
+            }
+
+            // Function to end the game
+            function endGame() {
+                clearInterval(gameInterval);
+                clearInterval(energyInterval);
+                document.getElementById('game-screen').classList.remove('visible');
+                document.getElementById('end-screen').classList.add('visible');
+                document.getElementById('final-score').innerText = score;
+                document.getElementById('final-time').innerText = totalGameTime;
+                const resultsContainer = document.getElementById('results');
+                resultsContainer.innerHTML = '<h2>정답 확인</h2>';
+                shuffledQuestions.forEach((q, index) => {
+                    resultsContainer.innerHTML += `<div class="result-item">${q.question} <br><strong>정답:</strong> ${q.answer}</div>`;
+                });
+            }
+
+            // Function to restart the game
+            window.restartGame = function() {
+                score = 0;
+                lives = 3;
+                totalGameTime = 0;
+                currentQuestionIndex = 0;
+                shuffledQuestions = shuffleArray([...problems]); // 문제 목록 다시 섞기
+                document.getElementById('end-screen').classList.remove('visible');
+                document.getElementById('game-screen').classList.add('visible');
+                updateStats();
+                renderQuestion();
+                if (difficulty !== 'low') {
+                    startEnergyBar();
+                }
+                gameStartTime = Date.now();
+                gameInterval = setInterval(() => {
+                    totalGameTime = Math.floor((Date.now() - gameStartTime) / 1000);
+                    document.getElementById('game-time').innerText = totalGameTime;
+                }, 1000);
+            }
+
+            // Function to start the energy bar
+            function startEnergyBar() {
+                clearInterval(energyInterval);
+                let energyBar = document.getElementById('energy');
+                let width = 100;
+                let decrement = 100 / (timeLimit * 10); // 에너지 바 업데이트 간격에 따라 조정
+
+                energyBar.style.width = '100%';
+                energyInterval = setInterval(() => {
+                    width -= decrement;
+                    if (width <= 0) {
+                        clearInterval(energyInterval);
+                        lives--;
+                        const currentQuestion = shuffledQuestions[currentQuestionIndex];
+                        let correctAnswerDisplay = currentQuestion.type === 'OX' ? currentQuestion.answer : currentQuestion.answer;
+                        document.getElementById('message').innerHTML = `시간 초과! 정답은 <strong>${correctAnswerDisplay}</strong>입니다. 😮`;
+                        updateStats();
+                        disableOptions();
+                        document.getElementById('next-button').style.display = 'inline-block';
+                        if (lives <= 0) {
+                            endGame();
+                        }
+                    } else {
+                        energyBar.style.width = width + '%';
+                    }
+                }, 100); // 0.1초마다 에너지 바 업데이트
+            }
+        };
+    </script>
+
+</body>
+</html>
